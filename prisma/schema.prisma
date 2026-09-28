@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Job {
+  id                String          @id @default(cuid())
+  createdAt         DateTime        @default(now())
+  incorporatedFrom  DateTime
+  incorporatedTo    DateTime
+  filters           Json // company_type, company_status, sic_codes, location
+  status            JobStatus       @default(FETCHING)
+  totalCompanies    Int             @default(0)
+  processedCount    Int             @default(0)
+  foundCount        Int             @default(0)
+  noMatchCount      Int             @default(0)
+  errorCount        Int             @default(0)
+  searchCreditsUsed Int             @default(0)
+  errorMessage      String?
+  fetchCursor       Json? // { date, startIndex } of the next Companies House page; null once fetched
+  results           CompanyResult[]
+}
+
+enum JobStatus {
+  FETCHING
+  READY
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+model CompanyResult {
+  id                      String       @id @default(cuid())
+  jobId                   String
+  job                     Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  companyNumber           String
+  companyName             String
+  incorporationDate       DateTime
+  companyType             String?
+  registeredAddress       Json?
+  sicCodes                String[]
+  status                  ResultStatus @default(PENDING)
+  facebookUrl             String?
+  facebookScore           Float?
+  googleBusinessUrl       String?
+  googleBusinessName      String?
+  googleBusinessAddress   String?
+  googleBusinessPhone     String?
+  googleBusinessWebsite   String?
+  googleBusinessScore     Float?
+  linkedinCompanyUrl      String?
+  linkedinCompanyScore    Float?
+  linkedinDirectorUrl     String?
+  linkedinDirectorScore   Float?
+  matchSource             MatchSource?
+  matchedViaCompanyName   String?
+  matchedViaCompanyNumber String?
+  officerName             String?
+  officerId               String?
+  directorNames           String[] // all active directors (spec 4.2), set during the owner fallback
+  note                    String?
+  errorMessage            String?
+  claimedAt               DateTime? // set when a batch claims the row; used to reset stuck rows
+  processedAt             DateTime?
+
+  @@unique([jobId, companyNumber])
+  @@index([jobId, status])
+}
+
+enum ResultStatus {
+  PENDING
+  PROCESSING
+  FOUND
+  NO_MATCH
+  ERROR
+}
+
+enum MatchSource {
+  BUSINESS
+  OWNER_OTHER_BUSINESS
+}
+
+model SearchCache {
+  id        String   @id @default(cuid())
+  provider  String
+  type      String // "facebook" | "places" | "organic"
+  query     String
+  response  Json
+  createdAt DateTime @default(now())
+
+  @@unique([provider, type, query])
+}
+
+/// Search API keys used in priority order; when one runs out of credits the next takes over.
+model SearchApiKey {
+  id            String          @id @default(cuid())
+  provider      String          @default("serper")
+  label         String
+  /// "ui" (added in Settings) or "env" (SERPER_API_KEY; the key itself is never stored)
+  source        String          @default("ui")
+  /// AES-256-GCM ciphertext of the key; null for the .env key
+  keyCiphertext String?
+  /// SHA-256 of the key: detects duplicates without storing the key in clear
+  keyHash       String          @unique
+  last4         String
+  priority      Int             @default(0)
+  enabled       Boolean         @default(true)
+  status        SearchKeyStatus @default(ACTIVE)
+  statusAt      DateTime?
+  lastError     String?
+  /// Credits left, as last reported by the provider
+  balance       Int?
+  balanceAt     DateTime?
+  /// Paid searches this app has made with the key
+  requestsCount Int             @default(0)
+  lastUsedAt    DateTime?
+  createdAt     DateTime        @default(now())
+
+  @@index([provider, enabled, priority])
+}
+
+enum SearchKeyStatus {
+  ACTIVE
+  EXHAUSTED
+  INVALID
+}
