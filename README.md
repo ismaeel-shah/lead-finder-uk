@@ -162,7 +162,7 @@ With `APP_PASSWORD` empty, there is no login.
 ## Deploying to Vercel
 
 1. **Create a hosted Postgres database** (Neon, Supabase or Vercel Postgres) and note two connection strings:
-   - a **pooled** one for the app. On Neon, use the `-pooler` host and add `?sslmode=require&pgbouncer=true&connection_limit=1`, which suits serverless functions.
+   - a **pooled** one for the app. On Neon, use the `-pooler` host and add `pgbouncer=true&connection_limit=5` to its query string (5 matches the companies processed at once in a batch).
    - a **direct** (non-pooled) one for migrations.
 2. **Run the migrations once** from your machine against the direct URL:
    ```bash
@@ -171,7 +171,7 @@ With `APP_PASSWORD` empty, there is no login.
    Run this again whenever `prisma/migrations` changes.
 3. **Import the repository** in Vercel (New Project → Import). The framework preset is detected as Next.js; keep the default build command (`npm run build`, which runs `prisma generate` first).
 4. **Add environment variables** in Project → Settings → Environment Variables: `DATABASE_URL` (pooled), `COMPANIES_HOUSE_API_KEY`, `APP_SECRET` (to save search keys from the dashboard), optionally `SERPER_API_KEY`, and optionally `APP_PASSWORD`, `MATCH_THRESHOLD`, `BATCH_SIZE`, `MAX_OWNER_COMPANIES`. Set `APP_PASSWORD` for any deployment reachable from the internet.
-5. **Deploy.** The fetch, process and export routes set `maxDuration = 60`; the Hobby plan allows up to 60 seconds, which is enough, because each call stops starting new work after 40 seconds.
+5. **Deploy.** `vercel.json` runs the functions in London (`lhr1`), next to a Neon database in AWS eu-west-2; keep the two in the same region, since every database query crosses that distance. The fetch, process and export routes set `maxDuration = 60`; the Hobby plan allows up to 60 seconds, which is enough, because each call stops starting new work after 40 seconds.
 
 ## Search credit costs
 
