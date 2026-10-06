@@ -1,3 +1,5 @@
+import { nicheById } from "@/lib/niches";
+
 const numberFormat = new Intl.NumberFormat("en-GB");
 const compactFormat = new Intl.NumberFormat("en-GB", { notation: "compact", maximumFractionDigits: 1 });
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
@@ -62,12 +64,15 @@ export function initials(name: string): string {
 
 type Filters = Record<string, string | null | undefined>;
 
-/** Full description of a run's filters: "Active · LTD · SIC 43220 · Bristol". */
+/** Full description of a run's filters: "Active · LTD · Plumbing, heating & electrical · Bristol". */
 export function fmtFilters(filters: unknown): string {
   const f = (filters ?? {}) as Filters;
   const status = f.company_status && f.company_status !== "active" ? f.company_status : "Active";
   const parts = [status.charAt(0).toUpperCase() + status.slice(1), (f.company_type ?? "ltd").toUpperCase()];
+  const niche = nicheById(f.niche);
+  if (niche) parts.push(niche.label);
   if (f.sic_codes) parts.push(`SIC ${f.sic_codes}`);
+  if (f.name_includes) parts.push(`name contains “${f.name_includes}”`);
   if (f.location) parts.push(f.location);
   return parts.join(" · ");
 }
@@ -76,6 +81,9 @@ export function fmtFilters(filters: unknown): string {
 export function fmtCustomFilters(filters: unknown): string {
   const f = (filters ?? {}) as Filters;
   const parts: string[] = [];
+  const niche = nicheById(f.niche);
+  if (niche) parts.push(niche.label);
+  if (f.name_includes) parts.push(`“${f.name_includes}”`);
   if (f.location) parts.push(f.location);
   if (f.sic_codes) parts.push(`SIC ${f.sic_codes}`);
   if (f.company_type && f.company_type !== "ltd") parts.push(f.company_type.toUpperCase());

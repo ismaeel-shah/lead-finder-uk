@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Input, Label, NativeSelect } from "@/components/ui/input";
 import { errorText, post, type FetchStepResult, type JobSummary } from "@/lib/client/api";
 import { addDays } from "@/lib/dates";
+import { nicheById, nicheGroups } from "@/lib/niches";
 import { cn } from "@/lib/utils";
 
 const COMPANY_TYPES = [
@@ -53,6 +54,8 @@ export function NewRunDialog({ open, onOpenChange, today, onCreated }: Props) {
   const [companyStatus, setCompanyStatus] = useState("active");
   const [sicCodes, setSicCodes] = useState("");
   const [location, setLocation] = useState("");
+  const [niche, setNiche] = useState("");
+  const [nameIncludes, setNameIncludes] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +67,23 @@ export function NewRunDialog({ open, onOpenChange, today, onCreated }: Props) {
   const activePreset = ranges.find((r) => r.from === from && r.to === to)?.id;
   const dateError = !from || !to ? "Choose both dates." : from > to ? "The start date must be on or before the end date." : to > today ? "The end date can’t be in the future." : null;
   const sicError = sicCodes.trim() && !/^[0-9,\s]+$/.test(sicCodes) ? "SIC codes must be numbers separated by commas." : null;
-  const filterCount = [companyType !== "ltd", companyStatus !== "active", !!sicCodes.trim(), !!location.trim()].filter(Boolean).length;
+  const filterCount = [
+    companyType !== "ltd",
+    companyStatus !== "active",
+    !!sicCodes.trim(),
+    !!location.trim(),
+    !!niche,
+    !!nameIncludes.trim(),
+  ].filter(Boolean).length;
+  const selectedNiche = nicheById(niche);
+  const summary = [
+    selectedNiche?.label,
+    nameIncludes.trim() && `“${nameIncludes.trim()}”`,
+    location.trim(),
+    companyType === "ltd" && companyStatus === "active" ? "Active Ltd" : "Custom type",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,6 +98,8 @@ export function NewRunDialog({ open, onOpenChange, today, onCreated }: Props) {
         companyStatus,
         sicCodes: sicCodes.trim() || undefined,
         location: location.trim() || undefined,
+        niche: niche || undefined,
+        nameIncludes: nameIncludes.trim() || undefined,
       });
       onCreated(res.job);
       onOpenChange(false);
@@ -155,13 +176,45 @@ export function NewRunDialog({ open, onOpenChange, today, onCreated }: Props) {
                 {filterCount > 0 && (
                   <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px] leading-5">{filterCount}</span>
                 )}
-                <span className="text-muted-foreground ml-auto text-xs font-normal">
-                  {companyType === "ltd" && companyStatus === "active" ? "Active Ltd companies" : "Custom"}
-                </span>
+                <span className="text-muted-foreground ml-auto max-w-[60%] truncate text-xs font-normal">{summary}</span>
                 <ChevronDown className={cn("text-muted-foreground size-4 transition-transform", showFilters && "rotate-180")} />
               </button>
               {showFilters && (
                 <div className="grid grid-cols-1 gap-3 border-t p-4 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="niche">Niche</Label>
+                    <NativeSelect id="niche" value={niche} onChange={(e) => setNiche(e.target.value)}>
+                      <option value="">Any niche</option>
+                      {nicheGroups().map(({ group, niches }) => (
+                        <optgroup key={group} label={group}>
+                          {niches.map((n) => (
+                            <option key={n.id} value={n.id}>
+                              {n.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </NativeSelect>
+                    <p className="text-muted-foreground text-xs">
+                      {selectedNiche
+                        ? `Companies registered under SIC ${selectedNiche.sic.join(", ")}.`
+                        : "Pick a type of business, or leave as Any niche for every new company."}
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name-includes">Name contains</Label>
+                    <Input
+                      id="name-includes"
+                      placeholder="e.g. plumbing"
+                      value={nameIncludes}
+                      onChange={(e) => setNameIncludes(e.target.value)}
+                      maxLength={100}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="location">Location</Label>
+                    <Input id="location" placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
+                  </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="type">Company type</Label>
                     <NativeSelect id="type" value={companyType} onChange={(e) => setCompanyType(e.target.value)}>
@@ -182,13 +235,9 @@ export function NewRunDialog({ open, onOpenChange, today, onCreated }: Props) {
                       ))}
                     </NativeSelect>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sic">SIC codes</Label>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="sic">{selectedNiche ? "Extra SIC codes" : "SIC codes"}</Label>
                     <Input id="sic" placeholder="e.g. 43220, 43210" value={sicCodes} onChange={(e) => setSicCodes(e.target.value)} aria-invalid={!!sicError} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="location">Location</Label>
-                    <Input id="location" placeholder="e.g. Manchester" value={location} onChange={(e) => setLocation(e.target.value)} />
                   </div>
                 </div>
               )}

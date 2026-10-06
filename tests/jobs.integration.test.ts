@@ -123,6 +123,26 @@ describe.skipIf(!url)("jobs (Postgres)", () => {
   });
 
   describe("runFetchStep", () => {
+    it("passes the niche's SIC codes, extra codes and the name keyword to Companies House", async () => {
+      const ch = fakeCh({ "2026-09-01": 1 });
+      const job = await createJob(prisma, {
+        incorporatedFrom: "2026-09-01",
+        incorporatedTo: "2026-09-01",
+        companyType: "ltd",
+        companyStatus: "active",
+        niche: "plumbing-electrical",
+        sicCodes: "43999",
+        nameIncludes: "gas",
+      });
+      await runFetchStep(prisma, ch, job.id);
+      expect(ch.searchNewCompaniesPage.mock.calls[0]![0]).toMatchObject({ sicCodes: "43220,43210,43999", nameIncludes: "gas" });
+      expect((await prisma.job.findUniqueOrThrow({ where: { id: job.id } })).filters).toMatchObject({
+        niche: "plumbing-electrical",
+        sic_codes: "43999",
+        name_includes: "gas",
+      });
+    });
+
     it("fetches every day and page, dedupes, and marks the job READY", async () => {
       const ch = fakeCh({ "2026-09-01": 5, "2026-09-02": 0, "2026-09-03": 3 });
       const job = await createJob(prisma, {

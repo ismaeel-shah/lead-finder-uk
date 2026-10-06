@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ApiError } from "@/lib/api";
 import type { CompaniesHouseClient, CompanySearchFilters, RegisteredAddress } from "@/lib/companiesHouse";
 import { addDays, dateOnly, formatDate, isValidDateString, todayInLondon } from "@/lib/dates";
+import { combinedSicCodes, NICHE_IDS } from "@/lib/niches";
 import { processCompany, type CompanyInput, type ProcessDeps, type ProcessOutcome } from "@/lib/processCompany";
 import { OUT_OF_CREDITS_MESSAGE, type SearchUsage } from "@/lib/search/types";
 
@@ -41,6 +42,10 @@ export const createJobSchema = z
     companyStatus: z.string().trim().min(1).max(100).default("active"),
     sicCodes: optionalText(200).refine((v) => !v || /^[0-9,\s]+$/.test(v), "SIC codes must be numbers separated by commas"),
     location: optionalText(100),
+    /** A business niche from lib/niches.ts; its SIC codes are added to `sicCodes`. */
+    niche: z.enum(NICHE_IDS).optional(),
+    /** Only companies whose name contains this text (Companies House `company_name_includes`). */
+    nameIncludes: optionalText(100),
   })
   .superRefine((v, ctx) => {
     if (v.incorporatedFrom > v.incorporatedTo) {
@@ -63,6 +68,8 @@ const storedFiltersSchema = z.object({
   company_status: z.string(),
   sic_codes: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
+  niche: z.string().nullable().optional(),
+  name_includes: z.string().nullable().optional(),
 });
 
 const fetchCursorSchema = z.object({ date: z.string(), startIndex: z.number().int().min(0) });
@@ -84,6 +91,8 @@ export async function createJob(prisma: PrismaClient, input: CreateJobInput): Pr
         company_status: input.companyStatus,
         sic_codes: input.sicCodes ?? null,
         location: input.location ?? null,
+        niche: input.niche ?? null,
+        name_includes: input.nameIncludes ?? null,
       },
       status: "FETCHING",
       fetchCursor: { date: input.incorporatedFrom, startIndex: 0 },
@@ -129,8 +138,10 @@ export async function runFetchStep(
         incorporatedTo: cursor.date,
         companyType: filters.company_type,
         companyStatus: filters.company_status,
-        sicCodes: filters.sic_codes ?? undefined,
+        // The niche's codes and any typed by hand: a company matching any of them.
+        sicCodes: combinedSicCodes(filters.niche, filters.sic_codes),
         location: filters.location ?? undefined,
+        nameIncludes: filters.name_includes ?? undefined,
       };
       const page = await ch.searchNewCompaniesPage(search, cursor.startIndex);
       if (page.truncated) {

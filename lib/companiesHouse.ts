@@ -123,6 +123,8 @@ export interface CompanySearchFilters {
   /** Comma-separated SIC codes. */
   sicCodes?: string;
   location?: string;
+  /** Only companies whose name contains this text. */
+  nameIncludes?: string;
 }
 
 export interface CompanySearchPage {
@@ -309,6 +311,7 @@ export function buildSearchParams(filters: CompanySearchFilters, startIndex: num
   for (const type of splitList(filters.companyType ?? "ltd")) params.append("company_type", type);
   for (const sic of splitList(filters.sicCodes)) params.append("sic_codes", sic);
   if (filters.location?.trim()) params.set("location", filters.location.trim());
+  if (filters.nameIncludes?.trim()) params.set("company_name_includes", filters.nameIncludes.trim());
   params.set("size", String(size));
   params.set("start_index", String(startIndex));
   return params;

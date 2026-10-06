@@ -63,7 +63,10 @@ Any Postgres 14+ works. The database must use **UTF-8 encoding**, because search
 
 - **Sidebar:** every run, with its date range, filters, progress and lead count. Click one to open it. On phones it opens from the menu button.
 - **Delete a run:** hover over it in the sidebar (on phones the icon is always shown) and click the trash icon. A confirmation window shows what will be removed; deleting is permanent, so export to Excel first if you want to keep the leads.
-- **New run** (button, or press **N**): pick a date preset (Today, Yesterday, Last 7 days, This month, Last month) or exact dates, and optional filters (company type, status, SIC codes, location). Click **Fetch companies**.
+- **New run** (button, or press **N**): pick a date preset (Today, Yesterday, Last 7 days, This month, Last month) or exact dates, and optional filters. Click **Fetch companies**.
+  - **Niche:** about 30 business types in 6 groups (e.g. "Plumbing, heating & electrical", "Restaurants, cafés & takeaways", "Hair & beauty salons"). Each maps to its UK SIC 2007 codes (`lib/niches.ts`), and the codes it covers are shown under the dropdown. Any **Extra SIC codes** typed by hand are added to the niche's.
+  - **Name contains:** only companies whose name includes the text (Companies House `company_name_includes`). This helps because many new companies pick a generic SIC code, but their name says what they do.
+  - Also company type, status and location.
 - **Ready screen:** how many companies were found and the estimated search credits, with a warning for large runs. Click **Start processing**.
 - **Run view:**
   - A progress chart showing Found / No match / Errors / Queued, each with a label and count.
